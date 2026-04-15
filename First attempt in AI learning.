@@ -148,7 +148,7 @@ int main() {
     srand(time(0));
 
     cout << "Training AI...\n";
-    train(50000); // increase for stronger AI
+    train(4); // increase for stronger AI
 
     cout << "Training complete. Play!\n";
     play();
