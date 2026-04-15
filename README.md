@@ -1,0 +1,1 @@
+What i have built is a C++ code that plays Tic Tac Toe and it learns from every game that it plays but it it still in the trail phase, meaning it still needs more data and play time in order for it to be and proficient as i hope it to be.
