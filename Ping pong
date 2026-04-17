@@ -1,0 +1,135 @@
+#include <SFML/Graphics.hpp>
+#include <unordered_map>
+#include <vector>
+#include <string>
+#include <cmath>
+#include <cstdlib>
+#include <ctime>
+
+using namespace sf;
+using namespace std;
+
+// Q-table
+unordered_map<string, vector<double>> Q;
+
+double alpha = 0.1;
+double gamma = 0.9;
+double epsilon = 0.1;
+
+// Discretize state
+string getState(float ballY, float ballVy, float paddleY) {
+    int by = int(ballY / 50);
+    int vy = (ballVy > 0) ? 1 : -1;
+    int py = int(paddleY / 50);
+
+    return to_string(by) + "_" + to_string(vy) + "_" + to_string(py);
+}
+
+// Choose action (0=up,1=stay,2=down)
+int chooseAction(string s) {
+    if ((double)rand()/RAND_MAX < epsilon)
+        return rand()%3;
+
+    if (Q.find(s) == Q.end())
+        Q[s] = vector<double>(3, 0);
+
+    int best = 0;
+    for (int i=1;i<3;i++)
+        if (Q[s][i] > Q[s][best])
+            best = i;
+
+    return best;
+}
+
+int main() {
+    srand(time(0));
+
+    RenderWindow window(VideoMode(800,600),"RL Pong AI");
+
+    // Ball
+    CircleShape ball(10);
+    ball.setPosition(400,300);
+    Vector2f vel(0.3f,0.3f);
+
+    // AI paddle (right)
+    RectangleShape ai(Vector2f(10,100));
+    ai.setPosition(760,250);
+
+    // Player paddle (left)
+    RectangleShape player(Vector2f(10,100));
+    player.setPosition(30,250);
+
+    string prevState;
+    int prevAction = 1;
+
+    while(window.isOpen()){
+        Event e;
+        while(window.pollEvent(e)){
+            if(e.type==Event::Closed)
+                window.close();
+        }
+
+        // Player control
+        if(Keyboard::isKeyPressed(Keyboard::Up))
+            player.move(0,-0.5f);
+        if(Keyboard::isKeyPressed(Keyboard::Down))
+            player.move(0,0.5f);
+
+        // Get state
+        string state = getState(ball.getPosition().y, vel.y, ai.getPosition().y);
+
+        // Choose action
+        int action = chooseAction(state);
+
+        // Apply action
+        if(action == 0) ai.move(0,-0.5f);
+        else if(action == 2) ai.move(0,0.5f);
+
+        // Ball movement
+        ball.move(vel);
+
+        // Wall bounce
+        if(ball.getPosition().y <= 0 || ball.getPosition().y >= 580)
+            vel.y *= -1;
+
+        // Paddle collisions
+        float reward = 0;
+
+        if(ball.getGlobalBounds().intersects(ai.getGlobalBounds())) {
+            vel.x *= -1;
+            reward = 1; // good
+        }
+
+        if(ball.getGlobalBounds().intersects(player.getGlobalBounds()))
+            vel.x *= -1;
+
+        // Miss (AI loses)
+        if(ball.getPosition().x > 800) {
+            reward = -1;
+            ball.setPosition(400,300);
+        }
+
+        // Q update
+        if(Q.find(prevState) == Q.end())
+            Q[prevState] = vector<double>(3,0);
+
+        if(Q.find(state) == Q.end())
+            Q[state] = vector<double>(3,0);
+
+        double maxQ = *max_element(Q[state].begin(), Q[state].end());
+
+        Q[prevState][prevAction] += alpha * (reward + gamma*maxQ - Q[prevState][prevAction]);
+
+        prevState = state;
+        prevAction = action;
+
+        // Render
+        window.clear();
+        window.draw(ball);
+        window.draw(ai);
+        window.draw(player);
+        window.display();
+    }
+
+    return 0;
+}
